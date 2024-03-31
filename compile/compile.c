@@ -173,11 +173,61 @@ static uint32_t AddConstant(CompileUnit *cu, Value constant)
 }
 
 /**
+ * @brief 编译类定义
+*/
+static void CompileClassDefinition(CompileUnit *cu)
+{
+
+}
+
+/**
+ * @brief 编译函数定义
+*/
+static void CompileFunctionDefinition(CompileUnit *cu)
+{
+
+}
+
+/**
+ * @brief 编译变量定义
+*/
+static void CompileVarDefinition(CompileUnit *cu, boolean can)
+{
+
+}
+
+/**
+ * @brief 编译模块导入
+*/
+static void CompileImport(CompileUnit *cu)
+{
+
+}
+
+/**
+ * @brief 编译语句
+*/
+static void CompileStatement(CompileUnit *cu)
+{
+
+}
+
+/**
  * @brief 编译程序 编译的入口
 */
 static void CompileProgram(CompileUnit *cu)
 {
-
+    if (MatchToken(cu->curParser, TOKEN_CLASS)) {
+        CompileClassDefinition(cu);
+    } else if (MatchToken(cu->curParser, TOKEN_FUN)) {
+        CompileFunctionDefinition(cu);
+    } else if (MatchToken(cu->curParser, TOKEN_VAR)) {
+        CompileVarDefinition(cu, cu->curParser->preToken.type == TOKEN_STATIC);
+    } else if (MatchToken(cu->curParser, TOKEN_IMPORT)) {
+        CompileImport(cu);
+    } else {
+        CompileStatement(cu);
+    }
 }
 
 /**
@@ -191,6 +241,7 @@ ObjFn* CompileModule(VM *vm, ObjModule *objModule, const char *moduleCore)
     // TODO: 局部变量带出去
     vm->curParser = &parser;
 
+    // 获得一个parser，每一个module都有一个parser
     if (objModule->name == NULL) { // 核心模块的name是NULL
         // 核心模块是core.script.inc
         InitParser(vm, &parser, "core.script.inc", moduleCore, objModule);
@@ -198,6 +249,7 @@ ObjFn* CompileModule(VM *vm, ObjModule *objModule, const char *moduleCore)
         InitParser(vm, &parser,  (const char *)objModule->name->value.start, moduleCore, objModule);
     }
     
+    // 初始化一个compileUnit
     CompileUnit moduleCu;
     // 分配一个compileunit
     InitCompileUnit(&parser, &moduleCu, NULL, false);

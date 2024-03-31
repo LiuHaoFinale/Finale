@@ -26,10 +26,6 @@ add_executable(${LEX_BIN} EXCLUDE_FROM_ALL
     vm/core.c vm/vm.c  
 )
 
-set_target_properties(${LEX_BIN} PROPERTIES 
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/../output/lex"
-)
-
 aux_source_directory(CLASS_SRC object/class)
 add_executable(${GRAMMAR_BIN} EXCLUDE_FROM_ALL
     main.c
@@ -41,10 +37,18 @@ add_executable(${GRAMMAR_BIN} EXCLUDE_FROM_ALL
     ${CLASS_SRC}
 )
 
+add_executable(${FINALE_BIN} EXCLUDE_FROM_ALL
+    main.c
+)
+
+set_target_properties(${LEX_BIN} PROPERTIES 
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/../output/lex"
+)
+
 set_target_properties(${GRAMMAR_BIN} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/../output/grammar"
 )
 
-add_executable(${FINALE_BIN} EXCLUDE_FROM_ALL
-    main.c
+set_target_properties(${FINALE} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/../output/finale"
 )
