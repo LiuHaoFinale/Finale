@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "meta_obj.h": "c",
+        "*.inc": "c",
+        "string_view": "c"
+    }
+}

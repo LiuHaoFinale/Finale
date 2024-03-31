@@ -63,7 +63,7 @@ void ErrorReport(void *parser, ErrorType errorType, const char *fmt, ...)
     #ifndef COLOR
             fprintf(stderr, "%s:%d \"%s\"\n", ((Parser *)parser)->file, ((Parser *)parser)->preToken.lineNo, buffer);
     #else
-            DEBUG_LOG(RED"%s:%d \"%s\"\n" NONE, ((Parser *)parser)->file, ((Parser *)parser)->preToken.lineNo, buffer);
+            LOG_SHOW(RED"%s:%d \"%s\"\n" NONE, ((Parser *)parser)->file, ((Parser *)parser)->preToken.lineNo, buffer);
     #endif
             break;
         case ERROR_RUNTIME:

@@ -9,6 +9,7 @@
 #include "parser.h"
 #include "vm.h"
 #include "core.h"
+#include "color_print.h"
 
 static void RunFile(const char *path)
 {
@@ -30,12 +31,12 @@ static void RunFile(const char *path)
     while (parser.curToken.type != TOKEN_EOF) // 循环打印词法分析器对脚本源码的识别结果
     {
         GetNextToken(&parser);
-        printf("%dL: %s [", parser.curToken.lineNo, tokenArray[parser.curToken.type]);
+        LOG_SHOW(GREEN "%dL: %s [" NONE, parser.curToken.lineNo, tokenArray[parser.curToken.type]);
         uint32_t idx = 0;
         while (idx < parser.curToken.length) {
-            printf("%c", *(parser.curToken.start + idx ++));
+            LOG_SHOW(GREEN "%c" NONE, *(parser.curToken.start + idx ++));
         }
-        printf(")\n");
+        LOG_SHOW(GREEN ")\n" NONE);
     }
 }
 

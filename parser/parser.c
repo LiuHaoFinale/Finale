@@ -256,7 +256,7 @@ static void ParseString(Parser *parser)
         }
     }
     // 用识别到的字符串新建字符串对象存储到cur_token的value中
-    // ObjString *obj_string = new_objString(parser->virtMem, (const char *)str.datas, str.count);
+    // ObjString *obj_string = new_objString(parser->vm, (const char *)str.datas, str.count);
     // parser->curToken.value = OBJ_TO_VALUE(obj_string);
     ByteBufferClear(parser->vm, &str);
 }
@@ -529,7 +529,7 @@ void ConsumeNextToken(Parser *parser, TokenType expected, const char * errMsg)
  * @brief 由于source_code未必来自于文件file，有可能只是一个字符串
  * @param file 仅用作跟踪待编译的代码的标识，方便报错
 */
-void InitParser(VM *vm, Parser *parser, const char *file, const char *sourceCode)
+void InitParser(VM *vm, Parser *parser, const char *file, const char *sourceCode, ObjModule *objModule)
 {
     parser->file = file;
     parser->sourceCode = sourceCode;
@@ -548,5 +548,5 @@ void InitParser(VM *vm, Parser *parser, const char *file, const char *sourceCode
     parser->preToken = parser->curToken;
     parser->interpolationExpectRightParenNum = 0;
     parser->vm = vm;
-    // parser->curModule = objModule;
+    parser->curModule = objModule;
 }

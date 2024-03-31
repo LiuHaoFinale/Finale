@@ -31,7 +31,7 @@ typedef struct {
     const char *start; 
     uint32_t length; // 长度
     uint32_t lineNo; // 行号
-    // Value value; // 用于存储单词的值
+    Value value; // 用于存储单词的值
 } Token;
 
 #define PEEK_TOKEN(parserPtr) parserPtr->curToken.type
@@ -43,8 +43,8 @@ struct parser {
     char curChar;
     Token curToken;
     Token preToken;
-    // ObjModule *curModule; // 当前正在编译的模块
-    // CompileUnit *curCompileUnit; // 当前编译单元
+    ObjModule *curModule; // 当前正在编译的模块
+    CompileUnit *curCompileUnit; // 当前编译单元
     int interpolationExpectRightParenNum;
     VM *vm;
     struct parser *parent; // 指向父parser
@@ -56,6 +56,6 @@ boolean MatchToken(Parser *parser, TokenType expected);
 void ConsumeCurToken(Parser *parser, TokenType expected, const char *errMsg);
 void ConsumeNextToken(Parser *parser, TokenType expected, const char * errMsg);
 
-void InitParser(VM *vm, Parser *parser, const char *file, const char *sourceCode);
+void InitParser(VM *vm, Parser *parser, const char *file, const char *sourceCode, ObjModule *objModule);
 
 #endif // !_PARSER_PARSER_H
