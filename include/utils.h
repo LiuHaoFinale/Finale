@@ -112,5 +112,5 @@ typedef enum {
     ErrorReport(NULL, ERROR_RUNTIME, __VA_ARGS__)
 
 void ErrorReport(void *parser, ErrorType error_type, const char *fmt, ...);
-
+uint32_t CeilToPowerOf2(uint32_t v);
 #endif
