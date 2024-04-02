@@ -8,6 +8,7 @@
 #include "utils.h"
 #include "obj_thread.h"
 #include "header_obj.h"
+#include "compile.h"
 
 void InitVM(VM *vm)
 {
@@ -115,5 +116,64 @@ static void ClosedUpvalue(ObjThread *objThread, Value *lastSlot)
 */
 static ObjUpvalue* CreateOpenUpvalue(VM *vm, ObjThread *objThread, Value *localVarPtr)
 {
+    if (objThread->openUpvalues == NULL) {
+        objThread->openUpvalues = NewObjUpvalue(vm, localVarPtr);
+        return objThread->openUpvalues;
+    }
 
+    ObjUpvalue *preUpvalue = NULL;
+    ObjUpvalue *objUpvalue = objThread->openUpvalues;
+
+    // 降序组织，找到合适的插入位置
+    while ((objUpvalue != NULL) && (objUpvalue->localVarPtr > localVarPtr)) {
+        preUpvalue = objUpvalue;
+        objUpvalue = objUpvalue->next;
+    }
+
+    // 如果已插入则返回
+    if ((objUpvalue != NULL) && (objUpvalue->localVarPtr == localVarPtr)) {
+        return objUpvalue;
+    }
+
+    ObjUpvalue *newUpvalue = NewObjUpvalue(vm, localVarPtr);
+
+    if (preUpvalue == NULL) {
+        objThread->openUpvalues = newUpvalue;
+    } else {
+        preUpvalue->next = newUpvalue;
+    }
+
+    newUpvalue->next = objUpvalue;
+    return newUpvalue; // 返回该节点
+}
+
+/**
+ * @brief 校验基类合法性
+*/
+static void IsValidateSuperClass(VM *vm, Value classNameValue, uint32_t fieldNum, Value superClassValue)
+{
+    if (!VALUE_IS_CLASS(superClassValue)) {
+        ObjString *classNameString = VALUE_TO_OBJSTR(classNameValue);
+        RUNTIME_ERROR("Class \"$s\" 's superClass is not a valid class!", classNameString->value.start);
+    }
+
+    Class *superClass = VALUE_TO_CLASS(superClassValue);
+    // 基类不允许内建类
+    if ((superClass == vm->stringClass) ||
+        (superClass == vm->mapClass)    ||
+        (superClass == vm->rangeClass)  ||
+        (superClass == vm->listClass)   ||
+        (superClass == vm->nullClass)   ||
+        (superClass == vm->boolClass)   ||
+        (superClass == vm->numClass)    ||
+        (superClass == vm->fnClass)     ||
+        (superClass == vm->threadClass)) {
+        RUNTIME_ERROR("SuperClass mustn't be a build in class!");
+    }
+
+    // 子类也有继承基类的域
+    // 子类自己的域+基类的域 不可超过最大值
+    if ((superClass->fieldNum + fieldNum) > MAX_FIELD_NUM) {
+        RUNTIME_ERROR("number of field including super exceed %d!", MAX_FIELD_NUM);
+    }
 }

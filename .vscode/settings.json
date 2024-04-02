@@ -2,6 +2,7 @@
     "files.associations": {
         "meta_obj.h": "c",
         "*.inc": "c",
-        "string_view": "c"
+        "string_view": "c",
+        "utils.h": "c"
     }
 }
