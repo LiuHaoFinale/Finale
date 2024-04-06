@@ -22,22 +22,24 @@ static void RunFile(const char *path)
         rootDir = root;
     }
     VM *vm = NewVM();
+    // printf("There is something to do ... \n");
     const char *sourceCode = ReadFile(path);  // 读取源码
 
-    Parser parser;
-    InitParser(vm, &parser, path, sourceCode);
+    // Parser parser;
+    // InitParser(vm, &parser, path, sourceCode);
 
-    #include "llt/token.list"
-    while (parser.curToken.type != TOKEN_EOF) // 循环打印词法分析器对脚本源码的识别结果
-    {
-        GetNextToken(&parser);
-        LOG_SHOW(GREEN "%dL: %s [" NONE, parser.curToken.lineNo, tokenArray[parser.curToken.type]);
-        uint32_t idx = 0;
-        while (idx < parser.curToken.length) {
-            LOG_SHOW(GREEN "%c" NONE, *(parser.curToken.start + idx ++));
-        }
-        LOG_SHOW(GREEN ")\n" NONE);
-    }
+    // #include "llt/token.list"
+    // while (parser.curToken.type != TOKEN_EOF) // 循环打印词法分析器对脚本源码的识别结果
+    // {
+    //     GetNextToken(&parser);
+    //     LOG_SHOW(GREEN "%dL: %s [" NONE, parser.curToken.lineNo, tokenArray[parser.curToken.type]);
+    //     uint32_t idx = 0;
+    //     while (idx < parser.curToken.length) {
+    //         LOG_SHOW(GREEN "%c" NONE, *(parser.curToken.start + idx ++));
+    //     }
+    //     LOG_SHOW(GREEN ")\n" NONE);
+    // }
+    ExecuteModule(vm, OBJ_TO_VALUE(NewObjString(vm, path, strlen(path))), sourceCode);
 }
 
 int main(int argc, const char **argv)
