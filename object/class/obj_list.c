@@ -7,6 +7,8 @@
 #include "utils.h"
 #include "header_obj.h"
 
+static void ShrinkList(VM *vm, ObjList *objList, uint32_t newCapacity);
+
 /**
  * @brief 新建list对象，元素个数为element_num
 */
@@ -21,7 +23,7 @@ ObjList* NewObjList(VM *vm, uint32_t elementNum)
 
     objList->elements.datas = elementArray;
     objList->elements.capacity = objList->elements.count = elementNum;
-    InitObjheader(vm, &objList->objHeader, OT_LIST, vm->listClass);
+    InitObjHeader(vm, &objList->objHeader, OT_LIST, vm->listClass);
     return objList;
 }
 
@@ -41,8 +43,7 @@ Value RemoveElement(VM *vm, ObjList *objList, uint32_t index)
 
     // 若容量利用率过低就减小容量
     uint32_t _capacity = objList->elements.capacity / CAPACITY_GROW_FACTOR;
-    if (_capacity > objList->elements.count)
-    {
+    if (_capacity > objList->elements.count) {
         ShrinkList(vm, objList, _capacity);
     }
 

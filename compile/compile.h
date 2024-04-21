@@ -77,5 +77,6 @@ typedef struct compileUnit CompileUnit;
 
 int DefineModuleVar(VM *vm, ObjModule *objModule, const char *name, uint32_t length, Value value);
 ObjFn* CompileModule(VM *vm, ObjModule *objModule, const char *moduleCore);
+uint32_t GetBytesOfOperands(Byte* instrStream, Value* constants, int ip);;
 
 #endif

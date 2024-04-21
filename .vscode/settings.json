@@ -15,6 +15,13 @@
         "type_traits": "c",
         "utility": "c",
         "variant": "c",
-        "chrono": "c"
+        "chrono": "c",
+        "common.h": "c",
+        "obj_string.h": "c",
+        "compare": "c",
+        "cmath": "c",
+        "math.h": "c",
+        "ctype.h": "c",
+        "floatn.h": "c"
     }
 }

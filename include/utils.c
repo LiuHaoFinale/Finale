@@ -41,6 +41,14 @@ DEFINE_BUFFER_METHOD(Integer)
 DEFINE_BUFFER_METHOD(Character)
 DEFINE_BUFFER_METHOD(Byte)
 
+void SymbolTableClear(VM* vm, SymbolTable* buffer) {
+   uint32_t idx = 0;
+   while (idx < buffer->count) {
+      MemManager(vm, buffer->datas[idx++].str, 0, 0); 
+   }
+   StringBufferClear(vm, buffer);
+}
+
 /**
  * @brief 通用报错函数
 */

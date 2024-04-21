@@ -7,6 +7,7 @@
 #include "class.h"
 #include "vm.h"
 #include "common.h"
+#include <string.h>
 
 /**
  * @brief 新建模块
@@ -19,10 +20,10 @@ ObjModule* NewObjModule(VM *vm, const char *modName)
     }
 
     // ObjModule是元信息对象，不属于任何一个类
-    InitObjheader(vm, &objModule->objHeader, OT_MODULE, NULL);
+    InitObjHeader(vm, &objModule->objHeader, OT_MODULE, NULL);
     
     StringBufferInit(&objModule->moduleVarName);
-    StringBufferInit(&objModule->moduleVarValue);
+    ValueBufferInit(&objModule->moduleVarValue);
 
     objModule->name = NULL; // 核心模块名为NULL
     if (modName != NULL) {
@@ -39,7 +40,7 @@ ObjInstance* NewObjInstance(VM *vm, Class *myClass)
 {
     ObjInstance *objInstance = ALLOCATE_EXTRA(vm, ObjInstance, sizeof(Value) * myClass->fieldNum);
 
-    InitOobjheader(vm, &objInstance->objHeader, OT_INSTANCE, myClass);
+    InitObjHeader(vm, &objInstance->objHeader, OT_INSTANCE, myClass);
     // 初始化field为NULL
     uint32_t idx = 0;
     while (idx < myClass->fieldNum) {

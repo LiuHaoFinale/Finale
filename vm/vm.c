@@ -9,6 +9,7 @@
 #include "obj_thread.h"
 #include "header_obj.h"
 #include "compile.h"
+#include "core.h"
 
 void InitVM(VM *vm)
 {
@@ -190,8 +191,8 @@ static void  PatchOperand(Class *class, ObjFn *fn)
         opCode = (OpCode)(fn->instructStream.datas[ip ++]);
         switch (opCode) {
             case OPCODE_LOAD_FIELD:
-            case OPCODE_STORE_FILED:
-            case OPCODE_LOAD_THIS_FILED:
+            case OPCODE_STORE_FIELD:
+            case OPCODE_LOAD_THIS_FIELD:
             case OPCODE_STORE_THIS_FIELD:
                 // 修正子类的field数目，参数是1Byte
                 fn->instructStream.datas[ip ++] += class->superClass->fieldNum;
@@ -225,13 +226,13 @@ static void  PatchOperand(Class *class, ObjFn *fn)
             case OPCODE_CREATE_CLOSURE: // TODO:
                 uint32_t fnIdx = (fn->instructStream.datas[ip] << 8) | (fn->instructStream.datas[ip + 1] << 8);
                 PatchOperand(class, VALUE_TO_OBJFN(fn->constants.datas[fnIdx]));
-                ip += GetByteOfOperands(fn->instructStream.datas, fn->constants.datas, ip - 1);
+                ip += GetBytesOfOperands(fn->instructStream.datas, fn->constants.datas, ip - 1);
                 break;
                 break;
             case OPCODE_END: // 用于从当前及递归嵌套闭包时返回
                 return ;
             default:
-                ip += GetByteOfOperands(fn->instructStream.datas, fn->constants.datas, ip - 1);
+                ip += GetBytesOfOperands(fn->instructStream.datas, fn->constants.datas, ip - 1);
                 break;
         }
     }
@@ -276,7 +277,7 @@ VMResult ExecuteInstruction(VM *vm, register ObjThread *curThread)
     #define PEEK() (*(curThread->esp - 1)) // 获取栈顶数据
     #define PEEK2() (*(curThread->esp - 2)) // 获得次栈顶的数据
     // 读指令
-    #define READ_BYTE() (ip ++)
+    #define READ_BYTE() (*ip ++)
     #define READ_SHORT() (ip += 2, (uint16_t)(ip[-2] << 8 | ip[-1]))
     #define STORE_CUR_FRAME() curFrame->ip = ip // 备份IP
 
@@ -298,7 +299,7 @@ VMResult ExecuteInstruction(VM *vm, register ObjThread *curThread)
         CASE(LOAD_LOCAL_VAR):
             PUSH(stackStart[(uint8_t)READ_BYTE()]);
             LOOP();
-        CASE(LOAD_THIS_FILED): {
+        CASE(LOAD_THIS_FIELD): {
 
         }
         CASE(POP):
@@ -408,7 +409,7 @@ VMResult ExecuteInstruction(VM *vm, register ObjThread *curThread)
         CASE(STORE_MODULE_VAR):
             objFn->module->moduleVarValue.datas[(uint16_t)READ_SHORT()] = PEEK();
             LOOP();    
-        CASE(STORE_THIS_FIELD):
+        CASE(STORE_THIS_FIELD): {
             // 栈顶：field值
             // 指令流 1字节的field索引
             uint8_t fieldIdx = READ_BYTE();
@@ -416,7 +417,8 @@ VMResult ExecuteInstruction(VM *vm, register ObjThread *curThread)
             ObjInstance *objInstance = VALUE_TO_OBJINSTANCE(stackStart[0]);
             objInstance->fields[fieldIdx] = PEEK();
             LOOP();
-        CASE(LOAD_FIELD):
+        }
+        CASE(LOAD_FIELD): {
             // 栈顶：实例对象
             // 指令流 1字节的field索引
             uint8_t fieldIdx = READ_BYTE(); // 获取待加兹安的字段索引
@@ -425,7 +427,8 @@ VMResult ExecuteInstruction(VM *vm, register ObjThread *curThread)
             ObjInstance *objInstance = VALUE_TO_OBJINSTANCE(receiver);
             PUSH(objInstance->fields[fieldIdx]);
             LOOP();
-        CASE(STORE_FILED):
+        }
+        CASE(STORE_FIELD): {
             // 栈顶：实例对象 次栈顶：field值
             // 指令流 1字节的field索引
             uint8_t fieldIdx = READ_BYTE(); // 获取待加兹安的字段索引
@@ -434,6 +437,7 @@ VMResult ExecuteInstruction(VM *vm, register ObjThread *curThread)
             ObjInstance *objInstance = VALUE_TO_OBJINSTANCE(receiver);
             PUSH(objInstance->fields[fieldIdx]);
             LOOP();
+        }
         CASE(JUMP): {// 指令流 2字节的跳转正偏移量
             int16_t offset = READ_SHORT();
             // TODO: assert

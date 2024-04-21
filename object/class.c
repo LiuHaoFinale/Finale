@@ -11,6 +11,7 @@
 #include "vm.h"
 #include "utils.h"
 #include "compile.h"
+#include <string.h>
 
 DEFINE_BUFFER_METHOD(Method)
 
@@ -51,7 +52,7 @@ boolean ValueIsEqual(Value a, Value b)
 Class* NewRawClass(VM *vm, const char *name, uint32_t fieldNum)
 {
     Class *class = ALLOCATE(vm, Class);
-    InitObjheader(vm, &class->objHeader, OT_CLASS, NULL);
+    InitObjHeader(vm, &class->objHeader, OT_CLASS, NULL);
     class->name = NewObjString(vm, name, strlen(name));
     class->fieldNum = fieldNum;
     class->superClass = NULL;

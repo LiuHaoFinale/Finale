@@ -21,7 +21,7 @@
  * @brief 模块指的是在某独立作用域中定义的代码的集合
  * 在模块对象中只保存其中的模块变量-在模块中定义的全局变量
 */
-typedef struct {
+typedef struct objModule {
     ObjHeader objHeader;
     SymbolTable moduleVarName; // 模块中的模块变量名
     ValueBuffer moduleVarValue; // 模块中的模块变量值

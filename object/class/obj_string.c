@@ -8,6 +8,7 @@
 #include "common.h"
 #include "utils.h"
 #include "vm.h"
+#include <string.h>
 
 /**
  * @brief fnv-la算法
@@ -41,7 +42,7 @@ ObjString* NewObjString(VM *vm, const char *str, uint32_t length)
     ObjString *objString = ALLOCATE_EXTRA(vm, ObjString, length + 1);
 
     if (objString != NULL) {
-        InitObjheader(vm, &objString->objHeader, OT_STRING, vm->stringClass);
+        InitObjHeader(vm, &objString->objHeader, OT_STRING, vm->stringClass);
         objString->value.length = length;
 
         // 支持空字符串:str为null，length为0

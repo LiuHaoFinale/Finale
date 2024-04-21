@@ -9,6 +9,8 @@
 #include "meta_obj.h"
 #include "utils.h"
 
+typedef struct objModule ObjModule;
+
 typedef struct {
     char *fnName;// 函数名
     IntegerBuffer lineNo; // 行号
@@ -37,7 +39,7 @@ typedef struct upvalue {
 /**
  * @brief 闭包指的是函数依赖的"环境"，环境即upvalues
 */
-typedef struct {
+typedef struct objClosure {
     ObjHeader objHeader;
     ObjFn *fn; // 闭包所要引用的函数
     ObjUpvalue *upvalues[0]; // 用以存储此函数的closed upvalue
@@ -46,7 +48,7 @@ typedef struct {
 /**
  * @brief 函数的调用栈帧，是函数的一套运行环境
 */
-typedef struct {
+typedef struct frame {
     uint8_t *ip; // 程序计数器，指向下一个将被指向的指令
     ObjClosure *closure; // 在本frame中执行的闭包函数
     // frame 是共享thread.stack

@@ -8,7 +8,7 @@
 
 #include "common.h"
 #include "vm.h"
-// #include "compile.h"
+#include "compile.h"
 
 typedef enum {
     TOKEN_UNKNOWN, TOKEN_NUM, TOKEN_STRING, TOKEN_ID, TOKEN_INTERPOLATION,

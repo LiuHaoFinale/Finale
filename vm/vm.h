@@ -10,6 +10,9 @@
 #include "header_obj.h"
 #include "obj_map.h"
 #include "obj_thread.h"
+#include <stdint.h>
+
+typedef uint8_t Opcode;
 
 #define OPCODE_SLOTS(opcode, effect) OPCODE_##opcode,
 typedef enum {

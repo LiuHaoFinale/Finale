@@ -54,13 +54,15 @@ typedef void (*DenotationFn)(CompileUnit *cu, boolean canAssign);
 // 签名函数指针
 typedef void (*MethodSignatureFn)(CompileUnit *cu, Signature *signature);
 
-typedef struct {
+typedef struct symbolBindRule {
     const char *id; // 符号
     BindPower lbp; // 左绑定权值
     DenotationFn nud;// 字面量 变量 前缀运算符等不关注左操作数的Token调用方法
     DenotationFn led; // 中缀运算符等关注左操作数的Token调用的方法
     MethodSignatureFn MethodSign; // 表示本符号在类中被视为一个方法，为其生产一个方法签名
 } SymbolBindRule; // 符号绑定规则
+
+static SymbolBindRule Rules[];
 
 typedef enum {
     VAR_SCOPE_INVALID, VAR_SCOPE_LOCAL, VAR_SCOPE_UPVALUE, VAR_SCOPE_MODULE
@@ -74,7 +76,7 @@ typedef struct {
 static void Expression(CompileUnit *cu, BindPower rbp);
 static uint32_t AddConstant(CompileUnit *cu, Value constant);
 static void CompileProgram(CompileUnit *cu);
-
+static void CompileStatement(CompileUnit *cu);
  /**
  * @brief 在模块objModule中定义名为name，值为value的模块变量
  *          模块变量存储在objModule结构体中
@@ -95,7 +97,7 @@ int DefineModuleVar(VM *vm, ObjModule *objModule, const char *name, uint32_t len
     }
     int symbolIndex= GetIndexFromSymbolTable(&objModule->moduleVarName, name, length);
     if (symbolIndex == -1) {
-        symbolIndex = addSymbol(vm, &objModule->moduleVarName, name, length);
+        symbolIndex = AddSymbol(vm, &objModule->moduleVarName, name, length);
         ValueBufferAdd(vm, &objModule->moduleVarValue, value);
     } else if (VALUE_IS_NUM(objModule->moduleVarValue.datas[symbolIndex])) {
         objModule->moduleVarValue.datas[symbolIndex] = value;
@@ -235,7 +237,7 @@ static void EmitLoadConstant(CompileUnit *cu, Value value)
 */
 static void Literal(CompileUnit *cu, boolean canAssign UNUSED)
 {
-    emit_load_constant(cu, cu->curParser->preToken.value);
+    EmitLoadConstant(cu, cu->curParser->preToken.value);
 }
 
 /**
@@ -617,7 +619,7 @@ static boolean TrySetter(CompileUnit *cu, Signature *sign)
     ConsumeCurToken(cu->curParser, TOKEN_ID, "expect ID!");
     // 声明形参
     DeclareVariable(cu, cu->curParser->preToken.start, cu->curParser->preToken.length);
-    consumeCurToken(cu->curParser, TOKEN_RIGHT_PAREN, "expect ')' after argument list!");
+    ConsumeCurToken(cu->curParser, TOKEN_RIGHT_PAREN, "expect ')' after argument list!");
     sign->argNum ++;
     return true;
 }
@@ -754,7 +756,7 @@ static Variable FindVariable(CompileUnit* cu, const char* name, uint32_t length)
    if (var.index != -1) return var;
   
    //若未找到再从模块变量中查找
-   var.index = getIndexFromSymbolTable(
+   var.index = GetIndexFromSymbolTable(
 	 &cu->curParser->curModule->moduleVarName, name, length);
    if (var.index != -1) {
       var.scopeType = VAR_SCOPE_MODULE;
@@ -769,11 +771,11 @@ static void EmitLoadVariable(CompileUnit *cu, Variable var)
 {
     switch (var.scopeType) {
         case VAR_SCOPE_LOCAL: {
-            WriteOpcodeByteoperand(cu, OPCODE_LOAD_LOCAL_VAR, var.index);
+            WriteOpcodeByteOperand(cu, OPCODE_LOAD_LOCAL_VAR, var.index);
             break;
         }
         case VAR_SCOPE_UPVALUE: {
-            WriteOpcodeByteoperand(cu, OPCODE_LOAD_UPVALUE, var.index);
+            WriteOpcodeByteOperand(cu, OPCODE_LOAD_UPVALUE, var.index);
             break;
         }
         case VAR_SCOPE_MODULE: {
@@ -792,11 +794,11 @@ static void EmitStoreVariable(CompileUnit *cu, Variable var)
 {
     switch (var.scopeType) {
         case VAR_SCOPE_LOCAL: {
-            WriteOpcodeByteoperand(cu, OPCODE_STORE_LOCAL_VAR, var.index);
+            WriteOpcodeByteOperand(cu, OPCODE_STORE_LOCAL_VAR, var.index);
             break;
         }
         case VAR_SCOPE_UPVALUE: {
-            WriteOpcodeByteoperand(cu, OPCODE_STORE_UPVALUE, var.index);
+            WriteOpcodeByteOperand(cu, OPCODE_STORE_UPVALUE, var.index);
             break;
         }
         case VAR_SCOPE_MODULE: {
@@ -1034,10 +1036,10 @@ static void ID(CompileUnit *cu, boolean canAssign)
                 }
                 // 如果当前正在编译类方法，则直接在该实例对象中加载filed
                 if (cu->enclosingUnit != NULL) {
-                    WriteOpcodeByteOperand(cu, isRead ? OPCODE_LOAD_THIS_FILED: OPCODE_STORE_THIS_FIELD, fieldIndex);
+                    WriteOpcodeByteOperand(cu, isRead ? OPCODE_LOAD_THIS_FIELD: OPCODE_STORE_THIS_FIELD, fieldIndex);
                 } else {
                     EmitLoadThis(cu);
-                    WriteOpcodeByteOperand(cu, isRead ? OPCODE_LOAD_THIS_FILED: OPCODE_STORE_THIS_FIELD, fieldIndex);
+                    WriteOpcodeByteOperand(cu, isRead ? OPCODE_LOAD_THIS_FIELD: OPCODE_STORE_THIS_FIELD, fieldIndex);
                 }
                 return ;
             }
@@ -1047,13 +1049,13 @@ static void ID(CompileUnit *cu, boolean canAssign)
             char *staticFieldId = ALLOCATE_ARRAY(cu->curParser->vm, char, MAX_ID_LEN);
             memset(staticFieldId, 0, MAX_ID_LEN);
             uint32_t staticFieldIdLen;
-            char clsName = classBK->name->value.start;
+            char* clsName = classBK->name->value.start;
             uint32_t clsLen = classBK->name->value.length;
             memmove(staticFieldId, "Cls", 3);
             // TODO:
             memmove(staticFieldId + 3, clsName, clsLen);
             memmove(staticFieldId + 3 + clsLen, " ", 1);
-            const char tkName = name.start;
+            const char *tkName = name.start;
             uint32_t tkLen = name.length;
             memmove(staticFieldId + 4 + clsLen, tkName, tkLen);
             staticFieldIdLen = strlen(staticFieldId);
@@ -1065,7 +1067,7 @@ static void ID(CompileUnit *cu, boolean canAssign)
             }
         }
         // 该标识符是同类中的其他方法调用
-        if (classBK != NULL && isLocalName(name.start)) {
+        if (classBK != NULL && IsLocalName(name.start)) {
             EmitLoadThis(cu); // 确保args[0]是this对象
             EmitMethodCall(cu, name.start, name.length, OPCODE_CALL0, canAssign);
             return ;
@@ -1083,7 +1085,7 @@ static void ID(CompileUnit *cu, boolean canAssign)
             // 若不是函数名，那可能是该模块变量定义在引用处的后面
             // 先将行号作为该变量去声明
             if (var.index == -1) {
-                var.index = declare_module_var(cu->curParser->vm, cu->curParser->curModule, 
+                var.index = DeclareModuleVar(cu->curParser->vm, cu->curParser->curModule, 
                                 name.start, name.length, NUM_TO_VALUE(cu->curParser->curToken.lineNo));
             }
         }
@@ -1328,11 +1330,22 @@ static void Condition(CompileUnit *cu, boolean canAssign UNUSED)
     PatchPlaceHolder(cu, falseBranchEnd);
 }
 
+//定义变量为其赋值
+static void DefineVariable(CompileUnit* cu, uint32_t index) {
+   //局部变量已存储到栈中,无须处理.
+   //模块变量并不存储到栈中,因此将其写回相应位置
+   if (cu->scopeDepth == -1) {
+      //把栈顶数据存入参数index指定的全局模块变量
+      WriteOpcodeShortOperand(cu, OPCODE_STORE_MODULE_VAR, index);
+      WriteOpcode(cu, OPCODE_POP);  //弹出栈顶数据,因为上面OPCODE_STORE_MODULE_VAR已经将其存储了
+   }
+}
+
 /**
  * @brief 编译变量定义 不支持多个变量定义 如var a=1,b=2
  * @warning 调用本函数前已经读入了关键字var，此时curToken是后面的变量名
 */
-static void CompileVarDefineition(CompileUnit *cu, boolean isStatic)
+static void CompileVarDefinition(CompileUnit *cu, boolean isStatic)
 {
     ConsumeCurToken(cu->curParser, TOKEN_ID, "missing variable name!");
     Token name = cu->curParser->preToken;
@@ -1358,7 +1371,7 @@ static void CompileVarDefineition(CompileUnit *cu, boolean isStatic)
             memmove(staticFieldId + 4 + clsLen, tkName, tkLen);
             staticFieldIdLen = strlen(staticFieldId);
             if (FindLocal(cu, staticFieldId, staticFieldIdLen) == -1) {
-                int index = declare_local_var(cu, staticFieldId, staticFieldIdLen);
+                int index = DeclareLocalVar(cu, staticFieldId, staticFieldIdLen);
                 WriteOpcode(cu, OPCODE_PUSH_NULL);
                 ASSERT(cu->scopeDepth == 0, "should in class scope!");
                 DefineVariable(cu, index);
@@ -1461,7 +1474,7 @@ static void CompileLoopBody(CompileUnit *cu)
 /**
  * @brief 获得ip所指向的操作码的操作数占用的字节数
 */
-uint32_t GetBytesOfOperand(Byte *instrStream, Value *constants, int ip)
+uint32_t GetBytesOfOperands(Byte *instrStream, Value *constants, int ip)
 {
     switch ((OpCode)instrStream[ip]) {
         case OPCODE_CONSTRUCT:
@@ -1474,7 +1487,7 @@ uint32_t GetBytesOfOperand(Byte *instrStream, Value *constants, int ip)
         case OPCODE_POP:
             return 0;
         case OPCODE_CREATE_CLASS:
-        case OPCODE_LOAD_THIS_FILED:
+        case OPCODE_LOAD_THIS_FIELD:
         case OPCODE_STORE_THIS_FIELD:
         case OPCODE_LOAD_LOCAL_VAR:
         case OPCODE_STORE_LOCAL_VAR:
@@ -1564,7 +1577,7 @@ static void LeaveLoopPatch(CompileUnit *cu)
             PatchPlaceHolder(cu, idx + 1);
             idx += 3;
         } else {
-            idx += 1 + GetBytesOfOperand(cu->compileUnitFn->instructStream.datas, cu->compileUnitFn->constants.datas, idx);
+            idx += 1 + GetBytesOfOperands(cu->compileUnitFn->instructStream.datas, cu->compileUnitFn->constants.datas, idx);
         }
     }
     // 退出当前循环体，即恢复cu->curLoop为当前循环层的外层循环
@@ -1808,7 +1821,7 @@ static void CompileMethod(CompileUnit *cu, Variable classVar, boolean isStatic)
 
     cu->enclosingClassBK->signature = &sign;
 
-    GetNextToken(&cu->curParser);
+    GetNextToken(cu->curParser);
 
     // 为了将函数或方法自己的指令流和局部变量单独存储
     // 每个函数或方法都有自己的CompileUnit
@@ -1855,12 +1868,12 @@ static void CompileClassBody(CompileUnit *cu, Variable classVar)
 {
     if (MatchToken(cu->curParser, TOKEN_STATIC)) {
         if (MatchToken(cu->curParser, TOKEN_VAR)) { // 处理静态域 static var id
-            CompileVarDefineition(cu, true);
+            CompileVarDefinition(cu, true);
         } else { // 处理静态方法 static method_name
             CompileMethod(cu, classVar, true);
         }
     } else if (MatchToken(cu->curParser, TOKEN_VAR)) { // 实例域
-        CompileVarDefineition(cu, false);
+        CompileVarDefinition(cu, false);
     } else { // 类方法
         CompileMethod(cu, classVar, false);
     }
@@ -1882,7 +1895,7 @@ static void CompileClassDefinition(CompileUnit *cu)
     // 生成类名，用于创建类
     ObjString *className = NewObjString(cu->curParser->vm, cu->curParser->preToken.start, cu->curParser->preToken.length);
     // 生成加载类名的指令
-    emit_load_constant(cu, OBJ_TO_VALUE(className));
+    EmitLoadConstant(cu, OBJ_TO_VALUE(className));
     if (MatchToken(cu->curParser, TOKEN_LESS)) { // 类继承
         Expression(cu, BP_CALL); // 把父类名加载到栈顶
     } else { // 默认加载object类为基类
@@ -1898,9 +1911,8 @@ static void CompileClassDefinition(CompileUnit *cu)
     ClassBookKeep classBK;
     classBK.name = className;
     classBK.inStatic = false; // 默认是false
-    String_buffer_init(&classBK.instantMethods);
-    Int_buffer_init(&classBK.instantMethods);
-    Int_buffer_init(&classBK.staticMethods);
+    IntegerBufferInit(&classBK.instantMethods);
+    IntegerBufferInit(&classBK.staticMethods);
     // 此时cu是模块的编译单元，跟踪当前编译的类
     cu->enclosingClassBK = &classBK;
     // 读入类名后的 {

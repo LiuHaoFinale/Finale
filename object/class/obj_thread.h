@@ -8,6 +8,10 @@
 
 #include "obj_fn.h"
 
+typedef struct frame Frame;
+typedef struct upvalue ObjUpvalue;
+typedef struct objClosure ObjClosure;
+
 typedef struct ObjThread {
     ObjHeader objHeader;
     Value *stack; // 运行时栈的栈底
@@ -19,7 +23,7 @@ typedef struct ObjThread {
     uint32_t frameCapacity; // frame容量
 
     ObjUpvalue *openUpvalues; // upvalue的链表首节点
-    struct objThread *caller; // 当前thread的调用者
+    struct ObjThread *caller; // 当前thread的调用者
 
     Value errorObj; // 
 } ObjThread; // 线程对象

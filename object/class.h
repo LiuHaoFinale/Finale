@@ -50,7 +50,7 @@ typedef enum {
 #define VALUE_TO_OBJMODULE(value)       ((ObjModule *)VALUE_TO_OBJ(value))
 
 #define VALUE_IS_UNDEFINED(value) ((value).valueType == VT_UNDEFINED)
-#define VALUE_IS_NUL(value)       ((value).valueType == VT_NULL)
+#define VALUE_IS_NULL(value)       ((value).valueType == VT_NULL)
 #define VALUE_IS_TRUE(value)      ((value).valueType == VT_TRUE)
 #define VALUE_IS_FALSE(value)     ((value).valueType == VT_FALSE)
 #define VALUE_IS_NUM(value)       ((value).valueType == VT_NUM)
@@ -65,6 +65,8 @@ typedef enum {
 
 // 原生方法指针
 typedef boolean (*Primitive)(VM *vm, Value *args);
+
+typedef struct objClosure ObjClosure;
 
 typedef struct {
     MethodType type; // union中的值由type的值决定

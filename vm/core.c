@@ -7,12 +7,17 @@
 #include "vm.h"
 #include "core.h"
 #include "compile.h"
+#include "unicode.h"
 #include <string.h>
 #include <sys/stat.h>
 #include <ctype.h>
 #include <math.h>
 #include <errno.h>
 #include <time.h>
+#include "core.script.inc"
+
+static ObjThread* LoadModule(VM *vm, Value moduleName, const char *moduleCode);
+static boolean ValidateFn(VM* vm, Value arg);
 
 char *rootDir = NULL; // 根目录
 
@@ -45,7 +50,7 @@ char *rootDir = NULL; // 根目录
     uint32_t length = strlen(methodName); \
     int globalIdx = GetIndexFromSymbolTable(&vm->allMethodNames, methodName, length); \
     if (globalIdx == -1) \
-    { \ 
+    { \
         globalIdx = AddSymbol(vm, &vm->allMethodNames, methodName, length);\
     } \
     Method method; \
@@ -93,208 +98,6 @@ VMResult ExecuteModule(VM *vm, Value moduleName, const char *moduleCode)
 }
 
 /**
- * @brief 编译核心模块
- * @details 在读取源码文件之前，先编译核心模块
-*/
-void BuildCore(VM *vm)
-{
-    ObjModule *coreModule = NewObjModule(vm, NULL); // NULL为核心模块
-    // 创建核心模块，录入virtmem->allModule  {vt_null: coremodule}
-    MapSet(vm, vm->allModules, CORE_MODULE, OBJ_TO_VALUE(coreModule));
-    // 创建object类并绑定方法 放入coreModule
-    vm->objectClass = DefineClass(vm, coreModule, "object");
-    PRIM_METHOD_BIND(vm->objectClass, "!", PrimObjectNot);
-    PRIM_METHOD_BIND(vm->objectClass, "==(_)", PrimObjectEqual);
-    PRIM_METHOD_BIND(vm->objectClass, "!=(_)", PrimObjectNotEqual);
-    PRIM_METHOD_BIND(vm->objectClass, "Is(_)", PrimObjectIs);
-    PRIM_METHOD_BIND(vm->objectClass, "ToString", PrimClassToString);
-    PRIM_METHOD_BIND(vm->objectClass, "Type", PrimObjectType);
-
-    // 定义classOfClass类，它是所有meta类的meta类和基类
-    vm->classOfClass = DefineClass(vm, coreModule, "class");
-
-    // object_class是任何类的基类，此处绑定objectClass为classOfClass的基类
-    BindSuperClass(vm, vm->classOfClass, vm->objectClass);
-
-    PRIM_METHOD_BIND(vm->classOfClass, "Name", PrimClassName);
-    PRIM_METHOD_BIND(vm->classOfClass, "SuperType", PrimClassSuperType);
-    PRIM_METHOD_BIND(vm->classOfClass, "ToString", PrimClassToString);
-
-    // object类的元信息类obejctMeta
-    Class *objectMetaClass = DefineClass(vm, coreModule, "obejctMeta");
-    // class_of_class类是所有meta类的meta类和基类
-    BindSuperClass(vm, objectMetaClass, vm->classOfClass);
-
-    PRIM_METHOD_BIND(objectMetaClass, "Same(_,_)", PrimObjectMetaSame);
-
-    // 绑定各自的meta类
-    vm->objectClass->objHeader.class = objectMetaClass;
-    objectMetaClass->objHeader.class = vm->classOfClass;
-    vm->classOfClass->objHeader.class = vm->classOfClass; // 元信息类回路，meta类终点
-
-    // 执行核心模块 CORE_MODULE
-    ExecuteModule(vm, CORE_MODULE, coreModule);
-
-    // bool类定义在inc中，将其挂在Bool类到vm->boolClass
-    vm->boolClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Bool"));
-    PRIM_METHOD_BIND(vm->boolClass, "ToString", PrimBoolToString);
-    PRIM_METHOD_BIND(vm->boolClass, "!", PrimBoolNot);
-
-   //绑定num类方法
-   vm->numClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Num"));
-   //类方法
-   PRIM_METHOD_BIND(vm->numClass->objHeader.class, "fromString(_)", PrimNumFromString);
-   PRIM_METHOD_BIND(vm->numClass->objHeader.class, "pi", PrimNumPi);
-   //实例方法 
-   PRIM_METHOD_BIND(vm->numClass, "+(_)", PrimNumPlus);
-   PRIM_METHOD_BIND(vm->numClass, "-(_)", PrimNumMinus);
-   PRIM_METHOD_BIND(vm->numClass, "*(_)", PrimNumMul);
-   PRIM_METHOD_BIND(vm->numClass, "/(_)", PrimNumDiv);
-   PRIM_METHOD_BIND(vm->numClass, ">(_)", PrimNumGt);
-   PRIM_METHOD_BIND(vm->numClass, ">=(_)", PrimNumGe);
-   PRIM_METHOD_BIND(vm->numClass, "<(_)", PrimNumLt);
-   PRIM_METHOD_BIND(vm->numClass, "<=(_)", PrimNumLe);
-
-   //位运算
-   PRIM_METHOD_BIND(vm->numClass, "&(_)", PrimNumBitAnd);
-   PRIM_METHOD_BIND(vm->numClass, "|(_)", PrimNumBitOr);
-   PRIM_METHOD_BIND(vm->numClass, ">>(_)", PrimNumBitShiftRight);
-   PRIM_METHOD_BIND(vm->numClass, "<<(_)", PrimNumBitShiftLeft);
-   //以上都是通过rules中INFIX_OPERATOR来解析的
-
-   //下面大多数方法是通过rules中'.'对应的led(callEntry)来解析,
-   //少数符号依然是INFIX_OPERATOR解析
-   PRIM_METHOD_BIND(vm->numClass, "abs", PrimNumAbs);
-   PRIM_METHOD_BIND(vm->numClass, "acos", PrimNumAcos);
-   PRIM_METHOD_BIND(vm->numClass, "asin", PrimNumAsin);
-   PRIM_METHOD_BIND(vm->numClass, "atan", PrimNumAtan);
-   PRIM_METHOD_BIND(vm->numClass, "ceil", PrimNumCeil);
-   PRIM_METHOD_BIND(vm->numClass, "cos", PrimNumCos);
-   PRIM_METHOD_BIND(vm->numClass, "floor", PrimNumFloor);
-   PRIM_METHOD_BIND(vm->numClass, "-", PrimNumNegate);
-   PRIM_METHOD_BIND(vm->numClass, "sin", PrimNumSin);
-   PRIM_METHOD_BIND(vm->numClass, "sqrt", PrimNumSqrt);
-   PRIM_METHOD_BIND(vm->numClass, "tan", PrimNumTan);
-   PRIM_METHOD_BIND(vm->numClass, "%(_)", PrimNumMod);
-   PRIM_METHOD_BIND(vm->numClass, "~", PrimNumBitNot);
-   PRIM_METHOD_BIND(vm->numClass, "..(_)", PrimNumRange);
-   PRIM_METHOD_BIND(vm->numClass, "atan(_)", PrimNumAtan2);
-   PRIM_METHOD_BIND(vm->numClass, "fraction", PrimNumFraction);
-   PRIM_METHOD_BIND(vm->numClass, "isInfinity", PrimNumIsInfinity);
-   PRIM_METHOD_BIND(vm->numClass, "isInteger", PrimNumIsInteger);
-   PRIM_METHOD_BIND(vm->numClass, "isNan", PrimNumIsNan);
-   PRIM_METHOD_BIND(vm->numClass, "toString", PrimNumToString);
-   PRIM_METHOD_BIND(vm->numClass, "truncate", PrimNumTruncate);
-   PRIM_METHOD_BIND(vm->numClass, "==(_)", PrimNumEqual);
-   PRIM_METHOD_BIND(vm->numClass, "!=(_)", PrimNumNotEqual);
-
-   //绑定Null类的方法
-   vm->nullClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Null"));
-   PRIM_METHOD_BIND(vm->nullClass, "!", PrimNullNot);
-   PRIM_METHOD_BIND(vm->nullClass, "toString", PrimNullToString);
-
-   //绑定函数类
-   vm->fnClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Fn"));
-   PRIM_METHOD_BIND(vm->fnClass->objHeader.class, "new(_)", PrimFnNew);
-
-   //绑定call的重载方法
-   bindFnOverloadCall(vm, "call()");
-   bindFnOverloadCall(vm, "call(_)");
-   bindFnOverloadCall(vm, "call(_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)");
-   bindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)");
-
-   //Thread类也是在core.script.inc中定义的,
-   //将其挂载到vm->threadClass并补充原生方法
-   vm->threadClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Thread"));
-   //以下是类方法
-   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "new(_)", PrimThreadNew);
-   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "abort(_)", PrimThreadAbort);
-   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "current", PrimThreadCurrent);
-   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "suspend()", PrimThreadSuspend);
-   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "yield(_)", PrimThreadYieldWithArg);
-   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "yield()", PrimThreadYieldWithoutArg);
-   //以下是实例方法
-   PRIM_METHOD_BIND(vm->threadClass, "call()", PrimThreadCallWithoutArg);
-   PRIM_METHOD_BIND(vm->threadClass, "call(_)", PrimThreadCallWithArg);
-   PRIM_METHOD_BIND(vm->threadClass, "isDone", PrimThreadIsDone);
-
-   //字符串类
-   vm->stringClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "String"));
-   PRIM_METHOD_BIND(vm->stringClass->objHeader.class, "fromCodePoint(_)", PrimStringFromCodePoint);
-   PRIM_METHOD_BIND(vm->stringClass, "+(_)", PrimStringPlus);
-   PRIM_METHOD_BIND(vm->stringClass, "[_]", PrimStringSubscript);
-   PRIM_METHOD_BIND(vm->stringClass, "byteAt_(_)", PrimStringByteAt);
-   PRIM_METHOD_BIND(vm->stringClass, "byteCount_", PrimStringByteCount);
-   PRIM_METHOD_BIND(vm->stringClass, "codePointAt_(_)", PrimStringCodePointAt);
-   PRIM_METHOD_BIND(vm->stringClass, "contains(_)", PrimStringContains);
-   PRIM_METHOD_BIND(vm->stringClass, "endsWith(_)", PrimStringEndsWith);
-   PRIM_METHOD_BIND(vm->stringClass, "indexOf(_)", PrimStringIndexOf);
-   PRIM_METHOD_BIND(vm->stringClass, "iterate(_)", PrimStringIterate);
-   PRIM_METHOD_BIND(vm->stringClass, "iterateByte_(_)", PrimStringIterateByte);
-   PRIM_METHOD_BIND(vm->stringClass, "iteratorValue(_)", PrimStringIteratorValue);
-   PRIM_METHOD_BIND(vm->stringClass, "startsWith(_)", PrimStringStartsWith);
-   PRIM_METHOD_BIND(vm->stringClass, "toString", PrimStringToString);
-   PRIM_METHOD_BIND(vm->stringClass, "count", PrimStringByteCount);
-
-   //List类
-   vm->listClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "List"));
-   PRIM_METHOD_BIND(vm->listClass->objHeader.class, "new()", PrimListNew);
-   PRIM_METHOD_BIND(vm->listClass, "[_]", PrimListSubscript);
-   PRIM_METHOD_BIND(vm->listClass, "[_]=(_)", PrimListSubscriptSetter);
-   PRIM_METHOD_BIND(vm->listClass, "add(_)", PrimListAdd);
-   PRIM_METHOD_BIND(vm->listClass, "addCore_(_)", PrimListAddCore);
-   PRIM_METHOD_BIND(vm->listClass, "clear()", PrimListClear);
-   PRIM_METHOD_BIND(vm->listClass, "count", PrimListCount);
-   PRIM_METHOD_BIND(vm->listClass, "insert(_,_)", PrimListInsert);
-   PRIM_METHOD_BIND(vm->listClass, "iterate(_)", PrimListIterate);
-   PRIM_METHOD_BIND(vm->listClass, "iteratorValue(_)", PrimListIteratorValue);
-   PRIM_METHOD_BIND(vm->listClass, "removeAt(_)", PrimListRemoveAt);
-
-   //map类
-   vm->mapClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Map"));
-   PRIM_METHOD_BIND(vm->mapClass->objHeader.class, "new()", PrimMapNew);
-   PRIM_METHOD_BIND(vm->mapClass, "[_]", PrimMapSubscript);
-   PRIM_METHOD_BIND(vm->mapClass, "[_]=(_)", PrimMapSubscriptSetter);
-   PRIM_METHOD_BIND(vm->mapClass, "addCore_(_,_)", PrimMapAddCore);
-   PRIM_METHOD_BIND(vm->mapClass, "clear()", PrimMapClear);
-   PRIM_METHOD_BIND(vm->mapClass, "containsKey(_)", PrimMapContainsKey);
-   PRIM_METHOD_BIND(vm->mapClass, "count", PrimMapCount);
-   PRIM_METHOD_BIND(vm->mapClass, "remove(_)", PrimMapRemove);
-   PRIM_METHOD_BIND(vm->mapClass, "iterate_(_)", PrimMapIterate);
-   PRIM_METHOD_BIND(vm->mapClass, "keyIteratorValue_(_)", PrimMapKeyIteratorValue);
-   PRIM_METHOD_BIND(vm->mapClass, "valueIteratorValue_(_)", PrimMapValueIteratorValue);
-
-   //range类
-   vm->rangeClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Range"));
-   PRIM_METHOD_BIND(vm->rangeClass, "from", PrimRangeFrom);
-   PRIM_METHOD_BIND(vm->rangeClass, "to", PrimRangeTo);
-   PRIM_METHOD_BIND(vm->rangeClass, "min", PrimRangeMin); 
-   PRIM_METHOD_BIND(vm->rangeClass, "max", PrimRangeMax);
-   PRIM_METHOD_BIND(vm->rangeClass, "iterate(_)", PrimRangeIterate);
-   PRIM_METHOD_BIND(vm->rangeClass, "iteratorValue(_)", PrimRangeIteratorValue);
-
-   //system类
-   Class* systemClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "System"));
-   PRIM_METHOD_BIND(systemClass->objHeader.class, "clock", PrimSystemClock);
-   PRIM_METHOD_BIND(systemClass->objHeader.class, "importModule(_)", PrimSystemImportModule);
-   PRIM_METHOD_BIND(systemClass->objHeader.class, "getModuleVariable(_,_)", PrimSystemGetModuleVariable);
-   PRIM_METHOD_BIND(systemClass->objHeader.class, "writeString_(_)", PrimSystemWriteString);
-}
-
-/**
  * @brief object取反
 */
 static boolean PrimObjectNot(VM *vm UNUSED, Value *args)
@@ -323,7 +126,7 @@ static boolean PrimObjectIs(VM *vm, Value *args)
         RUNTIME_ERROR("Argument must be class!");
     }
     
-    Class *thisClass = GetClassObj(vm, args[0]);
+    Class *thisClass = GetClassOfObj(vm, args[0]);
     Class *baseClass = (Class *)(args[1].objHeader);
 
     // 也有可能是多级继承
@@ -353,7 +156,7 @@ static boolean PrimObjectToString(VM *vm UNUSED, Value *args)
 */
 static boolean PrimObjectType(VM *vm, Value *args)
 {
-    Class *class = GetClassObj(vm, args[0]);
+    Class *class = GetClassOfObj(vm, args[0]);
     RET_OBJ(class);
 }
 
@@ -485,7 +288,7 @@ int EnsureSymbolExist(VM *vm, SymbolTable *table, const char *symbol, uint32_t l
 {
     int symbolIndex = GetIndexFromSymbolTable(table, symbol, length);
     if (symbolIndex == -1) {
-        return add_symbol(vm, table, symbol, length);
+        return AddSymbol(vm, table, symbol, length);
     }
 
     return symbolIndex;
@@ -496,35 +299,35 @@ int EnsureSymbolExist(VM *vm, SymbolTable *table, const char *symbol, uint32_t l
 */
 static ObjThread* LoadModule(VM *vm, Value moduleName, const char *moduleCode)
 {
-    ObjModule *module = GetModule(vm, moduleName);
-    // 避免重复载入
-    if (module == NULL) {
-        ObjString *modName = VALUE_TO_OBJSTR(moduleName);
-        ASSERT(modName->value.start[modName->value.length] == '\0', "string.value.start is not terminated!");
+   ObjModule *module = GetModule(vm, moduleName);
+   // 避免重复载入
+   if (module == NULL) {
+      ObjString *modName = VALUE_TO_OBJSTR(moduleName);
+      ASSERT(modName->value.start[modName->value.length] == '\0', "string.value.start is not terminated!");
 
-        module = NewObjModule(vm, modName->value.start);
-        MapSet(vm, vm->allModules, moduleName, OBJ_TO_VALUE(module));
+      module = NewObjModule(vm, modName->value.start);
+      MapSet(vm, vm->allModules, moduleName, OBJ_TO_VALUE(module));
 
-        // 继承核心模块中的变量
-        ObjModule *coreModule = GetModule(vm, CORE_MODULE);
-        uint32_t idx = 0;
-        while (idx < coreModule->moduleVarName.count) {
-            DefineModuleVar(vm, module, 
-                coreModule->moduleVarName.datas[idx].str, 
-                strlen(coreModule->moduleVarName.datas[idx].str), 
-                coreModule->moduleVarValue.datas[idx]);
-            idx ++;
-        }
-    }
-    /**
-     * 为函数创建闭包并放到线程中
-     * 闭包是函数和其环境组成的实体，为函数提供了自由变量的存储空间
-    */
-    ObjFn *fn = CompileModule(vm, module, moduleCode); // 生成的指令流存入fn中
-    ObjClosure *objClosure = NewObjClosure(vm, fn); // 创建闭包
-    ObjThread *moduleThread = NewObjThread(vm, objClosure); // 根据闭包创建线程
+      // 继承核心模块中的变量
+      ObjModule *coreModule = GetModule(vm, CORE_MODULE);
+      uint32_t idx = 0;
+      while (idx < coreModule->moduleVarName.count) {
+         DefineModuleVar(vm, module, 
+               coreModule->moduleVarName.datas[idx].str, 
+               strlen(coreModule->moduleVarName.datas[idx].str), 
+               coreModule->moduleVarValue.datas[idx]);
+         idx ++;
+      }
+   }
+   /**
+    * 为函数创建闭包并放到线程中
+    * 闭包是函数和其环境组成的实体，为函数提供了自由变量的存储空间
+   */
+   ObjFn *fn = CompileModule(vm, module, moduleCode); // 生成的指令流存入fn中
+   ObjClosure *objClosure = NewObjClosure(vm, fn); // 创建闭包
+   ObjThread *moduleThread = NewObjThread(vm, objClosure); // 根据闭包创建线程
 
-    return moduleThread;
+   return moduleThread;
 }
 
 /**
@@ -621,7 +424,7 @@ static boolean PrimNumFromString(VM* vm, Value* args) {
    }
    
    if (errno == ERANGE) {
-      RUN_ERROR("string too large!"); 
+      RUNTIME_ERROR("string too large!"); 
    }
 
    //如果字符串中不能转换的字符不全是空白,字符串非法,返回NULL
@@ -786,7 +589,7 @@ static boolean PrimNullNot(VM* vm UNUSED, Value* args UNUSED) {
 
 //null的字符串化
 static boolean PrimNullToString(VM* vm, Value* args UNUSED) {
-   ObjString* objString = BewObjString(vm, "null", 4);
+   ObjString* objString = NewObjString(vm, "null", 4);
    RET_OBJ(objString);
 }
 
@@ -813,7 +616,7 @@ static boolean ValidateFn(VM* vm, Value arg) {
       return true;
    }
    vm->curThread->errorObj = 
-      OBJ_TO_VALUE(newObjString(vm, "argument must be a function!", 28));
+      OBJ_TO_VALUE(NewObjString(vm, "argument must be a function!", 28));
    return false;
 }
 
@@ -854,7 +657,7 @@ static boolean PrimThreadSuspend(VM* vm, Value* args UNUSED) {
 
 //Thread.yield(arg)带参数让出cpu
 static boolean PrimThreadYieldWithArg(VM* vm, Value* args) {
-   ObjThread* curThread = vm->curThread;
+   struct ObjThread* curThread = vm->curThread;
    vm->curThread = curThread->caller;   //使cpu控制权回到主调方
 
    curThread->caller = NULL;  //与调用者断开联系
@@ -890,7 +693,7 @@ static boolean SwitchThread(VM* vm,
       ObjThread* nextThread, Value* args, boolean withArg) {
    //在下一线程nextThread执行之前,其主调线程应该为空
    if (nextThread->caller != NULL) {
-      RUN_ERROR("thread has been called!");
+      RUNTIME_ERROR("thread has been called!");
    }
    nextThread->caller = vm->curThread;
 
@@ -924,12 +727,12 @@ static boolean SwitchThread(VM* vm,
 
 //objThread.call()
 static boolean PrimThreadCallWithoutArg(VM* vm, Value* args) {
-   return switchThread(vm, VALUE_TO_OBJTHREAD(args[0]), args, false);
+   return SwitchThread(vm, VALUE_TO_OBJTHREAD(args[0]), args, false);
 }
 
 //objThread.call(arg)
 static boolean PrimThreadCallWithArg(VM* vm, Value* args) {
-   return switchThread(vm, VALUE_TO_OBJTHREAD(args[0]), args, true);
+   return SwitchThread(vm, VALUE_TO_OBJTHREAD(args[0]), args, true);
 }
 
 //objThread.isDone返回线程是否运行完成
@@ -1973,4 +1776,206 @@ static boolean PrimSystemWriteString(VM* vm UNUSED, Value* args) {
 //objMap.new():创建map对象
 static boolean PrimMapNew(VM* vm, Value* args UNUSED) {
    RET_OBJ(NewObjMap(vm));
+}
+
+/**
+ * @brief 编译核心模块
+ * @details 在读取源码文件之前，先编译核心模块
+*/
+void BuildCore(VM *vm)
+{
+    ObjModule *coreModule = NewObjModule(vm, NULL); // NULL为核心模块
+    // 创建核心模块，录入virtmem->allModule  {vt_null: coremodule}
+    MapSet(vm, vm->allModules, CORE_MODULE, OBJ_TO_VALUE(coreModule));
+    // 创建object类并绑定方法 放入coreModule
+    vm->objectClass = DefineClass(vm, coreModule, "object");
+    PRIM_METHOD_BIND(vm->objectClass, "!", PrimObjectNot);
+    PRIM_METHOD_BIND(vm->objectClass, "==(_)", PrimObjectEqual);
+    PRIM_METHOD_BIND(vm->objectClass, "!=(_)", PrimObjectNotEqual);
+    PRIM_METHOD_BIND(vm->objectClass, "Is(_)", PrimObjectIs);
+    PRIM_METHOD_BIND(vm->objectClass, "ToString", PrimClassToString);
+    PRIM_METHOD_BIND(vm->objectClass, "Type", PrimObjectType);
+
+    // 定义classOfClass类，它是所有meta类的meta类和基类
+    vm->classOfClass = DefineClass(vm, coreModule, "class");
+
+    // object_class是任何类的基类，此处绑定objectClass为classOfClass的基类
+    BindSuperClass(vm, vm->classOfClass, vm->objectClass);
+
+    PRIM_METHOD_BIND(vm->classOfClass, "Name", PrimClassName);
+    PRIM_METHOD_BIND(vm->classOfClass, "SuperType", PrimClassSuperType);
+    PRIM_METHOD_BIND(vm->classOfClass, "ToString", PrimClassToString);
+
+    // object类的元信息类obejctMeta
+    Class *objectMetaClass = DefineClass(vm, coreModule, "obejctMeta");
+    // class_of_class类是所有meta类的meta类和基类
+    BindSuperClass(vm, objectMetaClass, vm->classOfClass);
+
+    PRIM_METHOD_BIND(objectMetaClass, "Same(_,_)", PrimObjectMetaSame);
+
+    // 绑定各自的meta类
+    vm->objectClass->objHeader.class = objectMetaClass;
+    objectMetaClass->objHeader.class = vm->classOfClass;
+    vm->classOfClass->objHeader.class = vm->classOfClass; // 元信息类回路，meta类终点
+
+    // 执行核心模块 CORE_MODULE
+    ExecuteModule(vm, CORE_MODULE, g_coreModuleCode);
+
+    // bool类定义在inc中，将其挂在Bool类到vm->boolClass
+    vm->boolClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Bool"));
+    PRIM_METHOD_BIND(vm->boolClass, "ToString", PrimBoolToString);
+    PRIM_METHOD_BIND(vm->boolClass, "!", PrimBoolNot);
+
+   //绑定num类方法
+   vm->numClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Num"));
+   //类方法
+   PRIM_METHOD_BIND(vm->numClass->objHeader.class, "fromString(_)", PrimNumFromString);
+   PRIM_METHOD_BIND(vm->numClass->objHeader.class, "pi", PrimNumPi);
+   //实例方法 
+   PRIM_METHOD_BIND(vm->numClass, "+(_)", PrimNumPlus);
+   PRIM_METHOD_BIND(vm->numClass, "-(_)", PrimNumMinus);
+   PRIM_METHOD_BIND(vm->numClass, "*(_)", PrimNumMul);
+   PRIM_METHOD_BIND(vm->numClass, "/(_)", PrimNumDiv);
+   PRIM_METHOD_BIND(vm->numClass, ">(_)", PrimNumGt);
+   PRIM_METHOD_BIND(vm->numClass, ">=(_)", PrimNumGe);
+   PRIM_METHOD_BIND(vm->numClass, "<(_)", PrimNumLt);
+   PRIM_METHOD_BIND(vm->numClass, "<=(_)", PrimNumLe);
+
+   //位运算
+   PRIM_METHOD_BIND(vm->numClass, "&(_)", PrimNumBitAnd);
+   PRIM_METHOD_BIND(vm->numClass, "|(_)", PrimNumBitOr);
+   PRIM_METHOD_BIND(vm->numClass, ">>(_)", PrimNumBitShiftRight);
+   PRIM_METHOD_BIND(vm->numClass, "<<(_)", PrimNumBitShiftLeft);
+   //以上都是通过rules中INFIX_OPERATOR来解析的
+
+   //下面大多数方法是通过rules中'.'对应的led(callEntry)来解析,
+   //少数符号依然是INFIX_OPERATOR解析
+   PRIM_METHOD_BIND(vm->numClass, "abs", PrimNumAbs);
+   PRIM_METHOD_BIND(vm->numClass, "acos", PrimNumAcos);
+   PRIM_METHOD_BIND(vm->numClass, "asin", PrimNumAsin);
+   PRIM_METHOD_BIND(vm->numClass, "atan", PrimNumAtan);
+   PRIM_METHOD_BIND(vm->numClass, "ceil", PrimNumCeil);
+   PRIM_METHOD_BIND(vm->numClass, "cos", PrimNumCos);
+   PRIM_METHOD_BIND(vm->numClass, "floor", PrimNumFloor);
+   PRIM_METHOD_BIND(vm->numClass, "-", PrimNumNegate);
+   PRIM_METHOD_BIND(vm->numClass, "sin", PrimNumSin);
+   PRIM_METHOD_BIND(vm->numClass, "sqrt", PrimNumSqrt);
+   PRIM_METHOD_BIND(vm->numClass, "tan", PrimNumTan);
+   PRIM_METHOD_BIND(vm->numClass, "%(_)", PrimNumMod);
+   PRIM_METHOD_BIND(vm->numClass, "~", PrimNumBitNot);
+   PRIM_METHOD_BIND(vm->numClass, "..(_)", PrimNumRange);
+   PRIM_METHOD_BIND(vm->numClass, "atan(_)", PrimNumAtan2);
+   PRIM_METHOD_BIND(vm->numClass, "fraction", PrimNumFraction);
+   PRIM_METHOD_BIND(vm->numClass, "isInfinity", PrimNumIsInfinity);
+   PRIM_METHOD_BIND(vm->numClass, "isInteger", PrimNumIsInteger);
+   PRIM_METHOD_BIND(vm->numClass, "isNan", PrimNumIsNan);
+   PRIM_METHOD_BIND(vm->numClass, "toString", PrimNumToString);
+   PRIM_METHOD_BIND(vm->numClass, "truncate", PrimNumTruncate);
+   PRIM_METHOD_BIND(vm->numClass, "==(_)", PrimNumEqual);
+   PRIM_METHOD_BIND(vm->numClass, "!=(_)", PrimNumNotEqual);
+
+   //绑定Null类的方法
+   vm->nullClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Null"));
+   PRIM_METHOD_BIND(vm->nullClass, "!", PrimNullNot);
+   PRIM_METHOD_BIND(vm->nullClass, "toString", PrimNullToString);
+
+   //绑定函数类
+   vm->fnClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Fn"));
+   PRIM_METHOD_BIND(vm->fnClass->objHeader.class, "new(_)", PrimFnNew);
+
+   //绑定call的重载方法
+   BindFnOverloadCall(vm, "call()");
+   BindFnOverloadCall(vm, "call(_)");
+   BindFnOverloadCall(vm, "call(_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)");
+   BindFnOverloadCall(vm, "call(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)");
+
+   //Thread类也是在core.script.inc中定义的,
+   //将其挂载到vm->threadClass并补充原生方法
+   vm->threadClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Thread"));
+   //以下是类方法
+   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "new(_)", PrimThreadNew);
+   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "abort(_)", PrimThreadAbort);
+   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "current", PrimThreadCurrent);
+   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "suspend()", PrimThreadSuspend);
+   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "yield(_)", PrimThreadYieldWithArg);
+   PRIM_METHOD_BIND(vm->threadClass->objHeader.class, "yield()", PrimThreadYieldWithoutArg);
+   //以下是实例方法
+   PRIM_METHOD_BIND(vm->threadClass, "call()", PrimThreadCallWithoutArg);
+   PRIM_METHOD_BIND(vm->threadClass, "call(_)", PrimThreadCallWithArg);
+   PRIM_METHOD_BIND(vm->threadClass, "isDone", PrimThreadIsDone);
+
+   //字符串类
+   vm->stringClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "String"));
+   PRIM_METHOD_BIND(vm->stringClass->objHeader.class, "fromCodePoint(_)", PrimStringFromCodePoint);
+   PRIM_METHOD_BIND(vm->stringClass, "+(_)", PrimStringPlus);
+   PRIM_METHOD_BIND(vm->stringClass, "[_]", PrimStringSubscript);
+   PRIM_METHOD_BIND(vm->stringClass, "byteAt_(_)", PrimStringByteAt);
+   PRIM_METHOD_BIND(vm->stringClass, "byteCount_", PrimStringByteCount);
+   PRIM_METHOD_BIND(vm->stringClass, "codePointAt_(_)", PrimStringCodePointAt);
+   PRIM_METHOD_BIND(vm->stringClass, "contains(_)", PrimStringContains);
+   PRIM_METHOD_BIND(vm->stringClass, "endsWith(_)", PrimStringEndsWith);
+   PRIM_METHOD_BIND(vm->stringClass, "indexOf(_)", PrimStringIndexOf);
+   PRIM_METHOD_BIND(vm->stringClass, "iterate(_)", PrimStringIterate);
+   PRIM_METHOD_BIND(vm->stringClass, "iterateByte_(_)", PrimStringIterateByte);
+   PRIM_METHOD_BIND(vm->stringClass, "iteratorValue(_)", PrimStringIteratorValue);
+   PRIM_METHOD_BIND(vm->stringClass, "startsWith(_)", PrimStringStartsWith);
+   PRIM_METHOD_BIND(vm->stringClass, "toString", PrimStringToString);
+   PRIM_METHOD_BIND(vm->stringClass, "count", PrimStringByteCount);
+
+   //List类
+   vm->listClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "List"));
+   PRIM_METHOD_BIND(vm->listClass->objHeader.class, "new()", PrimListNew);
+   PRIM_METHOD_BIND(vm->listClass, "[_]", PrimListSubscript);
+   PRIM_METHOD_BIND(vm->listClass, "[_]=(_)", PrimListSubscriptSetter);
+   PRIM_METHOD_BIND(vm->listClass, "add(_)", PrimListAdd);
+   PRIM_METHOD_BIND(vm->listClass, "addCore_(_)", PrimListAddCore);
+   PRIM_METHOD_BIND(vm->listClass, "clear()", PrimListClear);
+   PRIM_METHOD_BIND(vm->listClass, "count", PrimListCount);
+   PRIM_METHOD_BIND(vm->listClass, "insert(_,_)", PrimListInsert);
+   PRIM_METHOD_BIND(vm->listClass, "iterate(_)", PrimListIterate);
+   PRIM_METHOD_BIND(vm->listClass, "iteratorValue(_)", PrimListIteratorValue);
+   PRIM_METHOD_BIND(vm->listClass, "removeAt(_)", PrimListRemoveAt);
+
+   //map类
+   vm->mapClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Map"));
+   PRIM_METHOD_BIND(vm->mapClass->objHeader.class, "new()", PrimMapNew);
+   PRIM_METHOD_BIND(vm->mapClass, "[_]", PrimMapSubscript);
+   PRIM_METHOD_BIND(vm->mapClass, "[_]=(_)", PrimMapSubscriptSetter);
+   PRIM_METHOD_BIND(vm->mapClass, "addCore_(_,_)", PrimMapAddCore);
+   PRIM_METHOD_BIND(vm->mapClass, "clear()", PrimMapClear);
+   PRIM_METHOD_BIND(vm->mapClass, "containsKey(_)", PrimMapContainsKey);
+   PRIM_METHOD_BIND(vm->mapClass, "count", PrimMapCount);
+   PRIM_METHOD_BIND(vm->mapClass, "remove(_)", PrimMapRemove);
+   PRIM_METHOD_BIND(vm->mapClass, "iterate_(_)", PrimMapIterate);
+   PRIM_METHOD_BIND(vm->mapClass, "keyIteratorValue_(_)", PrimMapKeyIteratorValue);
+   PRIM_METHOD_BIND(vm->mapClass, "valueIteratorValue_(_)", PrimMapValueIteratorValue);
+
+   //range类
+   vm->rangeClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "Range"));
+   PRIM_METHOD_BIND(vm->rangeClass, "from", PrimRangeFrom);
+   PRIM_METHOD_BIND(vm->rangeClass, "to", PrimRangeTo);
+   PRIM_METHOD_BIND(vm->rangeClass, "min", PrimRangeMin); 
+   PRIM_METHOD_BIND(vm->rangeClass, "max", PrimRangeMax);
+   PRIM_METHOD_BIND(vm->rangeClass, "iterate(_)", PrimRangeIterate);
+   PRIM_METHOD_BIND(vm->rangeClass, "iteratorValue(_)", PrimRangeIteratorValue);
+
+   //system类
+   Class* systemClass = VALUE_TO_CLASS(GetCoreClassValue(coreModule, "System"));
+   PRIM_METHOD_BIND(systemClass->objHeader.class, "clock", PrimSystemClock);
+   PRIM_METHOD_BIND(systemClass->objHeader.class, "importModule(_)", PrimSystemImportModule);
+   PRIM_METHOD_BIND(systemClass->objHeader.class, "getModuleVariable(_,_)", PrimSystemGetModuleVariable);
+   PRIM_METHOD_BIND(systemClass->objHeader.class, "writeString_(_)", PrimSystemWriteString);
 }

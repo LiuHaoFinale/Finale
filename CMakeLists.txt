@@ -15,18 +15,23 @@ include_directories(object)
 include_directories(parser)
 include_directories(vm)
 include_directories(compile)
+include_directories(object/class)
 
 # 通用设置文件输出目录
 # set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../output)
+
+aux_source_directory(object/class CLASS_SRC)
 
 add_executable(${LEX_BIN} EXCLUDE_FROM_ALL
     main.c
     include/unicode.c include/utils.c
     parser/parser.c
-    vm/core.c vm/vm.c  
+    compile/compile.c
+    vm/vm.c vm/core.c
+    object/class.c object/header_obj.c
+    ${CLASS_SRC}
 )
-
-aux_source_directory(CLASS_SRC object/class)
+target_link_libraries(${LEX_BIN} PRIVATE m)
 add_executable(${GRAMMAR_BIN} EXCLUDE_FROM_ALL
     main.c
     include/unicode.c include/utils.c

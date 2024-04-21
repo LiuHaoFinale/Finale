@@ -10,7 +10,7 @@
 ObjMap* NewObjMap(VM *vm)
 {
     ObjMap *objMap = ALLOCATE(vm, ObjMap);
-    InitObjheader(vm, &objMap->objHeader, OT_MAP, vm->mapClass);
+    InitObjHeader(vm, &objMap->objHeader, OT_MAP, vm->mapClass);
     objMap->capacity = objMap->count = 0;
     objMap->entries = NULL;
     return objMap;
@@ -81,7 +81,7 @@ static boolean AddEntry(Entry *entries, uint32_t capacity, Value key, Value valu
             entries[index].value = value;
             return true;
         }
-        else if (valueIsEqual(entries[index].key, key)) {
+        else if (ValueIsEqual(entries[index].key, key)) {
             entries[index].value = value;
             return false;
         }

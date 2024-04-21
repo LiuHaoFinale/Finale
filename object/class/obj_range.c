@@ -11,7 +11,7 @@
 ObjRange* NewObjRange(VM *vm, int from, int to)
 {
     ObjRange *objRange = ALLOCATE(vm, ObjRange);
-    InitObjheader(vm, &objRange->objHeader, OT_RANGE, vm->rangeClass);
+    InitObjHeader(vm, &objRange->objHeader, OT_RANGE, vm->rangeClass);
     objRange->from = from;
     objRange->to = to;
     return objRange;

@@ -113,4 +113,5 @@ typedef enum {
 
 void ErrorReport(void *parser, ErrorType error_type, const char *fmt, ...);
 uint32_t CeilToPowerOf2(uint32_t v);
+void SymbolTableClear(VM*, SymbolTable* buffer);
 #endif

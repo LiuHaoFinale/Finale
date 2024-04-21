@@ -34,7 +34,7 @@ ObjThread* NewObjThread(VM *vm, ObjClosure *objClosure)
     Value *newStack = ALLOCATE_ARRAY(vm, Value, stackCapacity);
 
     ObjThread *objThread = ALLOCATE(vm, ObjThread);
-    InitOobjheader(vm, &objThread->objHeader, OT_THREAD, vm->threadClass);
+    InitObjHeader(vm, &objThread->objHeader, OT_THREAD, vm->threadClass);
 
     objThread->frames = frames;
     objThread->frameCapacity = INITIAL_FRAME_NUM;

@@ -14,7 +14,7 @@
 ObjUpvalue* NewObjUpvalue(VM *vm, Value *localVarPtr)
 {
     ObjUpvalue *objUpvalue = ALLOCATE(vm, ObjUpvalue);
-    InitObjheader(vm, &objUpvalue->objHeader, OT_UPVALUE, NULL);
+    InitObjHeader(vm, &objUpvalue->objHeader, OT_UPVALUE, NULL);
     objUpvalue->localVarPtr = localVarPtr;
     objUpvalue->closedUpvalue = VT_TO_VALUE(VT_NULL);
     objUpvalue->next = NULL;
@@ -28,7 +28,7 @@ ObjClosure* NewObjClosure(VM *vm, ObjFn *objFn)
 {
     ObjClosure *objClosure = ALLOCATE_EXTRA(vm, ObjClosure, sizeof(ObjUpvalue *) * objFn->upvalueNum);
 
-    InitObjheader(vm, &objClosure->objHeader, OT_CLOSURE, vm->fnClass);
+    InitObjHeader(vm, &objClosure->objHeader, OT_CLOSURE, vm->fnClass);
     objClosure->fn = objFn;
 
     // 清除upvalue 避免在填充upvalue数组之前处罚GC
@@ -50,7 +50,7 @@ ObjFn*NewObjFn(VM *vm, ObjModule *objModule, uint32_t maxStackSlotUsedNum)
     {
         MEM_ERROR("Allocate ObjFn Failed!");
     }
-    InitObjheader(vm, &objFn->objHeader, OT_FUNCTION, vm->fnClass);
+    InitObjHeader(vm, &objFn->objHeader, OT_FUNCTION, vm->fnClass);
     ByteBufferInit(&objFn->instructStream);
     ValueBufferInit(&objFn->constants);
     objFn->module = objModule;
