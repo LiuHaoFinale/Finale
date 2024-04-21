@@ -70,6 +70,7 @@ struct vm {
 
 void InitVM(VM *vm);
 VM* NewVM(void);
+void FreeVM(VM *vm);
 VMResult ExecuteInstruction(VM *vm, register ObjThread *curThread);
 void EnsureStack(VM *vm, ObjThread *objThread, const uint32_t needSlots);
 void PushTmpRoot(VM *vm, ObjHeader *obj);

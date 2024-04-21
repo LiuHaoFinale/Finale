@@ -46,8 +46,7 @@ ObjClosure* NewObjClosure(VM *vm, ObjFn *objFn)
 ObjFn*NewObjFn(VM *vm, ObjModule *objModule, uint32_t maxStackSlotUsedNum)
 {
     ObjFn *objFn = ALLOCATE(vm, ObjFn);
-    if (objFn == NULL)
-    {
+    if (objFn == NULL) {
         MEM_ERROR("Allocate ObjFn Failed!");
     }
     InitObjHeader(vm, &objFn->objHeader, OT_FUNCTION, vm->fnClass);

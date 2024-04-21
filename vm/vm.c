@@ -39,8 +39,16 @@ VM* NewVM(void)
         MEM_ERROR("Allocate vm Fail!");
     }
     InitVM(vm);
-    // BuildCore(vm); // 在读取源码之前先编译核心模块
+    BuildCore(vm); // 在读取源码之前先编译核心模块
     return vm;
+}
+
+/**
+ * @brief 释放虚拟机
+*/
+void FreeVM(VM *vm)
+{
+    
 }
 
 /**

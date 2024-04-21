@@ -30,6 +30,8 @@ typedef enum {
 #define NUM_TO_VALUE(num) ((Value){VT_NUM, {num}})
 #define VALUE_TO_NUM(value) value.num
 
+// object -> value
+// 通过objHeader即可以知道一个Obj
 #define OBJ_TO_VALUE(objPtr) ({ \
     Value value; \
     value.valueType = VT_OBJ; \

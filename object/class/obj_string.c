@@ -49,8 +49,8 @@ ObjString* NewObjString(VM *vm, const char *str, uint32_t length)
         if (length > 0) {
             memcpy(objString->value.start, str, length);
         }
-        objString->value.start[length] = '\0';
-        HashObjString(objString);
+        objString->value.start[length] = '\0'; // 最后一个，即length + 1长度的1
+        HashObjString(objString); // 获得该字符串的哈希码
     } else {
         MEM_ERROR("Allocating ObjString failed!");
     }

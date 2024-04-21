@@ -6,7 +6,7 @@ set(LEX_BIN finale_lex)
 set(GRAMMAR_BIN finale_grammar)
 set(FINALE_BIN finale)
 
-add_compile_definitions(TEST)
+add_compile_definitions(DEBUG_TEST)
 
 include_directories(cli)
 include_directories(debug)

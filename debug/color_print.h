@@ -33,7 +33,8 @@
 #define CLEAR "\e[2J" //清除
 #define CLRLINE "\r\e[K" //清除行
 
-#ifdef TEST   /* 在编译的时候加上-D定义宏_D即可 */
+// 用于调测
+#ifdef DEBUG_TEST   /* 在编译的时候加上-D定义宏_D即可 */
 #define LOG_SHOW(fmt, args...) printf(fmt, ##args)
 #else
 #define LOG_SHOW(fmt, args...)
