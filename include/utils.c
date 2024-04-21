@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "parser.h"
 #include "vm.h"
+#include "gc.h"
 #include "color_print.h"
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,6 +17,10 @@ void* MemManager(VM *vm, void *ptr, uint32_t oldSize, uint32_t newSize)
     if (newSize == 0) {
         free(ptr);
         return NULL;
+    }
+
+    if (newSize > 0 && vm->allocatedBytes > vm->config.nextGC) {
+        StartGC(vm);
     }
     return realloc(ptr, newSize);
 }

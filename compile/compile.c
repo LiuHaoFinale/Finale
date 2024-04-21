@@ -7,6 +7,7 @@
 #include "compile.h"
 #include "parser.h"
 #include "core.h"
+#include "gc.h"
 #include <string.h>
 
 #ifdef DBEUG
@@ -2129,6 +2130,22 @@ ObjFn* CompileModule(VM *vm, ObjModule *objModule, const char *moduleCore)
 #else
     return EndCompileUnit(&moduleCu);
 #endif
+}
+
+//标识compileUnit使用的所有堆分配的对象(及其所有父对象)可达,以使它们不被GC收集
+void grayCompileUnit(VM* vm, CompileUnit* cu)
+{
+    GrayValue(vm, vm->curParser->curToken.value);
+    GrayValue(vm, vm->curParser->preToken.value);
+
+    //向上遍历父编译器外层链 使其fn可到达
+    //编译结束后,vm->curParser会在endCompileUnit中置为NULL,
+    //本函数是在编译过程中调用的,即vm->curParser肯定不为NULL,
+    ASSERT(vm->curParser != NULL, "only called while compiling!");
+    do {
+        GrayObject(vm, (ObjHeader*)cu->compileUnitFn);
+        cu = cu->enclosingUnit;
+    } while (cu != NULL);
 }
 
 static SymbolBindRule Rules[] = 

@@ -16,6 +16,7 @@ include_directories(parser)
 include_directories(vm)
 include_directories(compile)
 include_directories(object/class)
+include_directories(gc)
 
 # 通用设置文件输出目录
 # set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../output)
@@ -29,6 +30,7 @@ add_executable(${LEX_BIN} EXCLUDE_FROM_ALL
     compile/compile.c
     vm/vm.c vm/core.c
     object/class.c object/header_obj.c
+    gc/gc.c
     ${CLASS_SRC}
 )
 target_link_libraries(${LEX_BIN} PRIVATE m)
@@ -39,6 +41,7 @@ add_executable(${GRAMMAR_BIN} EXCLUDE_FROM_ALL
     compile/compile.c
     vm/vm.c vm/core.c
     object/class.c object/header_obj.c
+    gc/gc.c
     ${CLASS_SRC}
 )
 

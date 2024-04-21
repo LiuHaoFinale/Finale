@@ -1978,4 +1978,13 @@ void BuildCore(VM *vm)
    PRIM_METHOD_BIND(systemClass->objHeader.class, "importModule(_)", PrimSystemImportModule);
    PRIM_METHOD_BIND(systemClass->objHeader.class, "getModuleVariable(_,_)", PrimSystemGetModuleVariable);
    PRIM_METHOD_BIND(systemClass->objHeader.class, "writeString_(_)", PrimSystemWriteString);
+
+   // 在核心自举创建了很多objstring对象
+   ObjHeader *objHeader = vm->allObjects;
+   while (objHeader != NULL) {
+      if (objHeader->type == OT_STRING) {
+         objHeader->class = vm->stringClass;
+      }
+      objHeader = objHeader->next;
+   }
 }

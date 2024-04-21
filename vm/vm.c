@@ -16,6 +16,20 @@ void InitVM(VM *vm)
     vm->allocatedBytes = 0;
     vm->curParser = NULL;
     vm->allObjects = NULL;
+    StringBufferInit(&vm->allMethodNames);
+    vm->allModules = NewObjMap(vm);
+    vm->config.heapGrowthFactor = 1.5;
+
+    // 最小堆大小为1MB
+    vm->config.minHeapSize = 1024 * 1024;
+    // 初始堆大小为10MB
+    vm->config.initialHeapSize = 1024 * 1024 * 10;
+
+    vm->config.nextGC = vm->config.initialHeapSize;
+    vm->grays.count = 0;
+    vm->grays.capacity = 32;
+
+    vm->grays.grayObjects = (ObjHeader **)malloc(vm->grays.capacity * sizeof(ObjHeader *));
 }
 
 VM* NewVM(void)
@@ -602,4 +616,17 @@ VMResult ExecuteInstruction(VM *vm, register ObjThread *curThread)
     #undef STORE_CUR_FRAME
     #undef READ_BYTE
     #undef READ_SHORT
+}
+
+/**
+ * @brief 把obj作为临时的根对象，即将obj添加为gc的白名单，避免被gc回收
+*/
+void PushTmpRoot(VM *vm, ObjHeader *obj)
+{
+    vm->tmpRoots[vm->tmpRootNum ++] = obj;
+}
+
+void PopTmpRoot(VM *vm)
+{
+    vm->tmpRootNum ++;
 }
