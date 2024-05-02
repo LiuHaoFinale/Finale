@@ -1,4 +1,3 @@
 build/
 .vscode/
-debug/
 git_upload.sh

@@ -2091,12 +2091,13 @@ ObjFn* CompileModule(VM *vm, ObjModule *objModule, const char *moduleCore)
     // 各源码模块文件需要单独的parser 分配一个parser
     Parser parser;
     parser.parent = vm->curParser;
-    // TODO: 局部变量带出去
+    // TODO: 局部变量带出去，当出栈时，该变量会被释放
     vm->curParser = &parser;
 
     // 获得一个parser，每一个module都有一个parser
     if (objModule->name == NULL) { // 核心模块的name是NULL
         // 核心模块是core.script.inc
+        // 与BuildCore内容基本相同，不同的是此处用脚本文件实现
         InitParser(vm, &parser, "core.script.inc", moduleCore, objModule);
     } else {
         InitParser(vm, &parser,  (const char *)objModule->name->value.start, moduleCore, objModule);

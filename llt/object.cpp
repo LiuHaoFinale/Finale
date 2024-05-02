@@ -16,7 +16,7 @@ struct A {
     char b;
 };
 
-TEST(Object, Exchange)
+TEST(Object, ObjectTrunValue)
 {
     struct AB *ab = (struct AB *)malloc(sizeof(struct AB));
     ab->a = 2;
@@ -25,4 +25,7 @@ TEST(Object, Exchange)
     struct A *a = (struct A*)ab;
     EXPECT_EQ(a->a, 2);
     EXPECT_EQ(a->b, 'a');
+
+    int* p = reinterpret_cast<int *>(ab);
+    EXPECT_EQ(*p, 2);
 }

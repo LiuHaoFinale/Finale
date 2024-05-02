@@ -14,13 +14,13 @@
 
 static void RunFile(const char *path)
 {
-    // path是否包含/，否则为当前路径
+    // path是否包含/，否则为当前路径 假设输入地址为/home/sample.spr
     const char *lastSlash = strrchr(path, '/');  // 用于判断path路径是否是当前路径的形式
     if (lastSlash != NULL) {
         char *root = (char *)malloc(lastSlash - path + 2);
         memcpy(root, path, lastSlash - path + 1);
         root[lastSlash - path + 1] = '\0';
-        rootDir = root; // 将路径保存在rootDir
+        rootDir = root; // 将路径保存在rootDir=/home/
     }
     VM *vm = NewVM();
     const char *sourceCode = ReadFile(path);  // 读取源码

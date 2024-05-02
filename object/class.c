@@ -55,7 +55,7 @@ Class* NewRawClass(VM *vm, const char *name, uint32_t fieldNum)
     InitObjHeader(vm, &class->objHeader, OT_CLASS, NULL);
     class->name = NewObjString(vm, name, strlen(name));
     class->fieldNum = fieldNum;
-    class->superClass = NULL;
+    class->superClass = NULL; // 默认无父类
     MethodBufferInit(&class->methods);
     return class;
 }

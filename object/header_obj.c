@@ -17,7 +17,9 @@ void InitObjHeader(VM *vm, ObjHeader *objHeader, ObjType objType, Class *class)
     objHeader->type = objType;
     // 与GC相关
     objHeader->isdark = false;
+
     objHeader->class = class;  // 设置meta类
+    
     objHeader->next = vm->allObjects;  // 设新对象头放在链表头
     vm->allObjects = objHeader; // 重新指向
 }

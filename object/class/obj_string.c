@@ -39,9 +39,11 @@ ObjString* NewObjString(VM *vm, const char *str, uint32_t length)
 {
     ASSERT(length == 0 || str != NULL, "Str length don't match str!");
 
+    // ALLOCATE_EXTRA用于柔性数组的分配
     ObjString *objString = ALLOCATE_EXTRA(vm, ObjString, length + 1);
 
     if (objString != NULL) {
+        // stringClass为meta类
         InitObjHeader(vm, &objString->objHeader, OT_STRING, vm->stringClass);
         objString->value.length = length;
 

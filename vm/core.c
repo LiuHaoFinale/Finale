@@ -1785,9 +1785,10 @@ static boolean PrimMapNew(VM* vm, Value* args UNUSED) {
 void BuildCore(VM *vm)
 {
     ObjModule *coreModule = NewObjModule(vm, NULL); // NULL为核心模块
-    // 创建核心模块，录入virtmem->allModule  {vt_null: coremodule}
+    // 创建核心模块，录入vm->allModule  {vt_null: coremodule}
     MapSet(vm, vm->allModules, CORE_MODULE, OBJ_TO_VALUE(coreModule));
-    // 创建object类并绑定方法 放入coreModule
+  
+    // 创建object类并绑定方法 放入coreModule->moduleVarName
     vm->objectClass = DefineClass(vm, coreModule, "object");
     PRIM_METHOD_BIND(vm->objectClass, "!", PrimObjectNot);
     PRIM_METHOD_BIND(vm->objectClass, "==(_)", PrimObjectEqual);

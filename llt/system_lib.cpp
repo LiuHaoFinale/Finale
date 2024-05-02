@@ -36,9 +36,10 @@ TEST_F(SystemLibrary, cstring_strrchr)
 TEST_F(SystemLibrary, cstring_strrchr2)
 {
     const char *path = "/home/sample.spr";
-    const char *lastSlash = strrchr(path, '/');  // 用于判断path路径是否是当前路径的形式
+    const char *lastSlash = strrchr(path, '/');  // 用于判断path路径是否是当前路径的形式 /sample.spr
+    printf("%d\n", lastSlash-path);
     char *root = (char *)malloc(lastSlash - path + 2); // 申请分配内存 5 + 2 = 7，索引是从0开始的
-    memcpy(root, path, lastSlash - path + 1); // 5 + 1 复制是从1开始的
+    memcpy(root, path, lastSlash - path + 1); // 5 + 1 复制是从1开始的 /home/
     root[lastSlash - path + 1] = '\0'; // 字符指针最后一位是\0
     EXPECT_EQ(static_cast<std::string>(root), "/home/");
 }
