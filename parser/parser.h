@@ -36,7 +36,7 @@ typedef struct {
 
 #define PEEK_TOKEN(parserPtr) parserPtr->curToken.type
 
-typedef struct parser {
+struct parser {
     const char *file;
     const char *sourceCode;
     const char *nextCharPtr;
@@ -48,7 +48,7 @@ typedef struct parser {
     int interpolationExpectRightParenNum;
     VM *vm;
     struct parser *parent; // 指向父parser
-} Parser;
+};
 
 char LookAheadChar(Parser *parser);
 void GetNextToken(Parser *parser);

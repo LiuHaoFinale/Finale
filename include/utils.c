@@ -19,9 +19,9 @@ void* MemManager(VM *vm, void *ptr, uint32_t oldSize, uint32_t newSize)
         return NULL;
     }
 
-    if (newSize > 0 && vm->allocatedBytes > vm->config.nextGC) {
-        StartGC(vm);
-    }
+    // if (newSize > 0 && vm->allocatedBytes > vm->config.nextGC) {
+    //     StartGC(vm);
+    // }
     return realloc(ptr, newSize);
 }
 

@@ -229,7 +229,7 @@ static uint32_t AddConstant(CompileUnit *cu, Value constant)
 */
 static void EmitLoadConstant(CompileUnit *cu, Value value)
 {
-    int index = AddConstant(cu, value);
+    int index = AddConstant(cu, value); // 先将其加载到常量表
     WriteOpcodeShortOperand(cu, OPCODE_LOAD_CONSTANT, index);
 }
 
@@ -485,6 +485,7 @@ static int DeclareVariable(CompileUnit *cu, const char *name, uint32_t length)
             memcpy(id, name, length);
             COMPILE_ERROR(cu->curParser, "Identifier \"%s\" redefinition!", id);  
         }
+        return index;
     }
 
     // 否则是局部作用域
@@ -1886,12 +1887,13 @@ static void CompileClassBody(CompileUnit *cu, Variable classVar)
 static void CompileClassDefinition(CompileUnit *cu)
 {
     Variable classVar;
-    if (cu->scopeDepth != -1) {
+    if (cu->scopeDepth != -1) { // class只能在模块作用域
         COMPILE_ERROR(cu->curParser, "class definition must be in the module scope!");
     }
     // 生成类名，用于创建类
     classVar.scopeType = VAR_SCOPE_MODULE;
     ConsumeCurToken(cu->curParser, TOKEN_ID, "keyword class should follow by class name!"); // 读入类拧
+    // 类名存入objModule.moduleVarName
     classVar.index = DeclareVariable(cu, cu->curParser->preToken.start, cu->curParser->preToken.length);
     // 生成类名，用于创建类
     ObjString *className = NewObjString(cu->curParser->vm, cu->curParser->preToken.start, cu->curParser->preToken.length);
@@ -1902,7 +1904,7 @@ static void CompileClassDefinition(CompileUnit *cu)
     } else { // 默认加载object类为基类
         EmitLoadModuleVar(cu, "object");
     }
-    // 创建类需要知道域的个数，此时未知
+    // 创建类需要知道域的个数，此时未知，默认位255
     int fieldNumIndex = WriteOpcodeByteOperand(cu, OPCODE_CREATE_CLASS, 255);
     // vm执行完OPCODE_CREATE_CLASS后，栈顶留下了创建好的类
     // 因此 现在可以用该类为之前声明的类名className赋值
@@ -1912,6 +1914,7 @@ static void CompileClassDefinition(CompileUnit *cu)
     ClassBookKeep classBK;
     classBK.name = className;
     classBK.inStatic = false; // 默认是false
+    StringBufferInit(&classBK.fields);
     IntegerBufferInit(&classBK.instantMethods);
     IntegerBufferInit(&classBK.staticMethods);
     // 此时cu是模块的编译单元，跟踪当前编译的类

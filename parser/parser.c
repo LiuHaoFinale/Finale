@@ -256,8 +256,8 @@ static void ParseString(Parser *parser)
         }
     }
     // 用识别到的字符串新建字符串对象存储到cur_token的value中
-    // ObjString *obj_string = new_objString(parser->vm, (const char *)str.datas, str.count);
-    // parser->curToken.value = OBJ_TO_VALUE(obj_string);
+    ObjString *obj_string = NewObjString(parser->vm, (const char *)str.datas, str.count);
+    parser->curToken.value = OBJ_TO_VALUE(obj_string);
     ByteBufferClear(parser->vm, &str);
 }
 

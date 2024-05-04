@@ -8,6 +8,11 @@ set(FINALE_BIN finale)
 
 add_compile_definitions(DEBUG_TEST)
 
+# add_compile_options(-lm)
+link_libraries(-lm -lpthread)
+
+add_compile_options(-g)
+
 include_directories(cli)
 include_directories(debug)
 include_directories(include)
@@ -47,6 +52,13 @@ add_executable(${GRAMMAR_BIN} EXCLUDE_FROM_ALL
 
 add_executable(${FINALE_BIN} EXCLUDE_FROM_ALL
     main.c
+    include/unicode.c include/utils.c
+    parser/parser.c
+    compile/compile.c
+    vm/vm.c vm/core.c
+    object/class.c object/header_obj.c
+    gc/gc.c
+    ${CLASS_SRC}
 )
 
 set_target_properties(${LEX_BIN} PROPERTIES 
@@ -54,7 +66,7 @@ set_target_properties(${LEX_BIN} PROPERTIES
 )
 
 set_target_properties(${GRAMMAR_BIN} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/../output/grammar"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}//output/grammar"
 )
 
 set_target_properties(${FINALE} PROPERTIES
